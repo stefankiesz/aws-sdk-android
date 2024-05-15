@@ -59,6 +59,11 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.REQUEST_FRAGME
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.SDK_GENERATES_TIMECODES;
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.VERSION_ZERO;
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.MAX_LATENCY;
+import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.DEFAULT_BITRATE;
+
+import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_VIDEO_CONTENT_TYPE;
+import com.amazonaws.kinesisvideo.demoapp.contants.DemoTrackInfos;
+
 
 /**
  * Android camera wrapper
@@ -128,10 +133,43 @@ public class AndroidCameraMediaSource implements MediaSource {
     public StreamInfo getStreamInfo() throws KinesisVideoException {
         // Need to fix-up the content type as the Console playback only accepts video/h264 and will fail
         // if the mime type is video/avc which is the default in Android.
-        String contentType = mMediaSourceConfiguration.getEncoderMimeType();
-        if (contentType.equals("video/avc")) {
-            contentType = "video/h264";
-        }
+        // String contentType = mMediaSourceConfiguration.getEncoderMimeType();
+        // if (contentType.equals("video/avc")) {
+        //     contentType = "video/h264";
+        // }
+        String contentType = AUDIO_VIDEO_CONTENT_TYPE;
+
+        // return new StreamInfo(VERSION_ZERO,
+        //         mStreamName,
+        //         StreamInfo.StreamingType.STREAMING_TYPE_REALTIME,
+        //         contentType,
+        //         NO_KMS_KEY_ID,
+        //         mMediaSourceConfiguration.getRetentionPeriodInHours()
+        //                 * HUNDREDS_OF_NANOS_IN_AN_HOUR,
+        //         NOT_ADAPTIVE,
+        //         MAX_LATENCY,
+        //         DEFAULT_GOP_DURATION,
+        //         KEYFRAME_FRAGMENTATION,
+        //         SDK_GENERATES_TIMECODES,
+        //         mMediaSourceConfiguration.getIsAbsoluteTimecode(),
+        //         REQUEST_FRAGMENT_ACKS,
+        //         RECOVER_ON_FAILURE,
+        //         StreamInfo.codecIdFromContentType(mMediaSourceConfiguration.getEncoderMimeType()),
+        //         StreamInfo.createTrackName(mMediaSourceConfiguration.getEncoderMimeType()),
+        //         mMediaSourceConfiguration.getBitRate(),
+        //         mMediaSourceConfiguration.getFrameRate(),
+        //         DEFAULT_BUFFER_DURATION,
+        //         DEFAULT_REPLAY_DURATION,
+        //         DEFAULT_STALENESS_DURATION,
+        //         mMediaSourceConfiguration.getTimeScale() / NANOS_IN_A_TIME_UNIT,
+        //         RECALCULATE_METRICS,
+        //         mMediaSourceConfiguration.getCodecPrivateData(),
+        //         new Tag[] {
+        //                 new Tag("device", "Test Device"),
+        //                 new Tag("stream", "Test Stream") },
+        //         mMediaSourceConfiguration.getNalAdaptationFlags());
+
+                
 
         return new StreamInfo(VERSION_ZERO,
                 mStreamName,
@@ -148,20 +186,17 @@ public class AndroidCameraMediaSource implements MediaSource {
                 mMediaSourceConfiguration.getIsAbsoluteTimecode(),
                 REQUEST_FRAGMENT_ACKS,
                 RECOVER_ON_FAILURE,
-                StreamInfo.codecIdFromContentType(mMediaSourceConfiguration.getEncoderMimeType()),
-                StreamInfo.createTrackName(mMediaSourceConfiguration.getEncoderMimeType()),
-                mMediaSourceConfiguration.getBitRate(),
+                DEFAULT_BITRATE, // start bit rate for statistics
                 mMediaSourceConfiguration.getFrameRate(),
                 DEFAULT_BUFFER_DURATION,
                 DEFAULT_REPLAY_DURATION,
                 DEFAULT_STALENESS_DURATION,
                 mMediaSourceConfiguration.getTimeScale() / NANOS_IN_A_TIME_UNIT,
                 RECALCULATE_METRICS,
-                mMediaSourceConfiguration.getCodecPrivateData(),
-                new Tag[] {
-                        new Tag("device", "Test Device"),
-                        new Tag("stream", "Test Stream") },
-                mMediaSourceConfiguration.getNalAdaptationFlags());
+                null,
+                mMediaSourceConfiguration.getNalAdaptationFlags(),
+                null,
+                DemoTrackInfos.createTrackInfoList()); // TODO: DemoTrackInfos is not present in this version of Java producer, let's copy over a similar class here.
     }
 
     @Override

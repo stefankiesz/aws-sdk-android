@@ -15,8 +15,18 @@ import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
+import com.amazonaws.kinesisvideo.common.exception.KinesisVideoException;
+import com.amazonaws.mobileconnectors.kinesisvideo.encoding.EncoderWrapper.FrameAvailableListener;
+import com.amazonaws.kinesisvideo.producer.KinesisVideoFrame;
+import com.amazonaws.mobileconnectors.kinesisvideo.util.FrameUtility;
+import com.amazonaws.kinesisvideo.producer.Tag;
+import com.amazonaws.kinesisvideo.internal.client.mediasource.MediaSourceSink;
+
+
+
 
 public class MicrophoneFramesSource {
+    private static final String TAG = MicrophoneFramesSource.class.getSimpleName();
     private static final int AUDIO_SAMPLE_RATE = 8000; // mMediaSourceConfiguration.getSampleRate(), Hardcoded sample rate for now (emulator requires 8000);
     private static final int AUDIO_CHANNEL_TYPE = AudioFormat.CHANNEL_IN_MONO; // Android Docs: "CHANNEL_IN_MONO is guaranteed to work on all devices."
     private static final int AUDIO_ENCODING_TYPE = AudioFormat.ENCODING_PCM_16BIT; // Android Docs: "ENCODING_PCM_16BIT is Guaranteed to be supported by devices."
@@ -32,6 +42,24 @@ public class MicrophoneFramesSource {
     private Thread audioCaptureThread = null;
     private boolean isRecording = false;
     private long mLastRecordedFrameTimestamp = 0;
+    private int mFrameIndex = 0;
+    private long mFragmentStart = 0;
+    MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
+
+    private MediaSourceSink mMediaSourceSink; // TODO: Should probably pass this in from AndroidCameraMediaSource via a constructor for this class
+
+
+    private FrameAvailableListener mFrameAvailableListener = new FrameAvailableListener() {
+        @Override
+        public void onFrameAvailable(final KinesisVideoFrame frame) {
+            try {
+                Log.i(TAG, "updating sink with frame");
+                mMediaSourceSink.onFrame(frame);
+            } catch (final KinesisVideoException e) {
+                Log.e(TAG, "error updating sink with frame", e);
+            }
+        }
+    };
 
 
 
@@ -50,7 +78,7 @@ public class MicrophoneFramesSource {
 
             audioCaptureThread = new Thread(new Runnable() {
                 public void run() {
-                    MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+                    // MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
                     ByteBuffer[] codecInputBuffers = audioEncoder.getInputBuffers();
                     ByteBuffer[] codecOutputBuffers = audioEncoder.getOutputBuffers();
 
@@ -59,7 +87,7 @@ public class MicrophoneFramesSource {
                         while (true) {
                             // System.out.println("[TESTING] Handling audio sample...");
                             boolean success = handleCodecInput(codecInputBuffers, Thread.currentThread().isAlive());
-                            if (success) {handleCodecOutput(codecOutputBuffers, bufferInfo, outputStream);}
+                            if (success) {handleCodecOutput(codecOutputBuffers, mBufferInfo, outputStream);}
                         }
                     } catch (IOException e) {
                         System.out.println("Failed in audioCaptureThread: " + e);
@@ -175,7 +203,8 @@ public class MicrophoneFramesSource {
 
                     byte[] data = new byte[encoderOutputBuffer.remaining()];
                     encoderOutputBuffer.get(data);
-                    outputStream.write(data);
+                    sendEncodedFrameToProducerSDK(encoderOutputBuffer);
+                    // outputStream.write(data);
                 }
 
                 encoderOutputBuffer.clear();
@@ -187,6 +216,25 @@ public class MicrophoneFramesSource {
 
             codecOutputBufferIndex = audioEncoder.dequeueOutputBuffer(bufferInfo, 0);
         }
+    }
+
+    private void sendEncodedFrameToProducerSDK(final ByteBuffer encodedData) {
+        final long currentTime = System.currentTimeMillis();
+        Log.d(TAG, "time between frames: " + (currentTime - mLastRecordedFrameTimestamp) + "ms");
+        mLastRecordedFrameTimestamp = currentTime;
+
+        if (mFragmentStart == 0) {
+            mFragmentStart = currentTime;
+        }
+
+        final ByteBuffer frameData = encodedData;
+
+        mFrameAvailableListener.onFrameAvailable(
+                FrameUtility.createFrame(
+                        mBufferInfo,
+                        1 + currentTime - mFragmentStart,
+                        mFrameIndex++,
+                        frameData));
     }
 
 
