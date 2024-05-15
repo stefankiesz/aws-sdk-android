@@ -20,7 +20,8 @@ public class MicrophoneFramesSource {
     private static final int AUDIO_SAMPLE_RATE = 8000; // mMediaSourceConfiguration.getSampleRate(), Hardcoded sample rate for now (emulator requires 8000);
     private static final int AUDIO_CHANNEL_TYPE = AudioFormat.CHANNEL_IN_MONO; // Android Docs: "CHANNEL_IN_MONO is guaranteed to work on all devices."
     private static final int AUDIO_ENCODING_TYPE = AudioFormat.ENCODING_PCM_16BIT; // Android Docs: "ENCODING_PCM_16BIT is Guaranteed to be supported by devices."
-    
+    private static final int AUDIO_BIT_RATE = 6000;
+
     private final int bufferSize = AudioRecord.getMinBufferSize(AUDIO_SAMPLE_RATE, AUDIO_CHANNEL_TYPE, AUDIO_ENCODING_TYPE); 
 
     private final OutputStream outputStream = new ByteArrayOutputStream();
@@ -49,32 +50,30 @@ public class MicrophoneFramesSource {
 
             audioCaptureThread = new Thread(new Runnable() {
                 public void run() {
-                    System.out.println("[TESTING] Submitting audio frame to KVS");
                     MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
                     ByteBuffer[] codecInputBuffers = audioEncoder.getInputBuffers();
                     ByteBuffer[] codecOutputBuffers = audioEncoder.getOutputBuffers();
 
 
-                    while (true) {
-                        try {
+                    try {
+                        while (true) {
+                            // System.out.println("[TESTING] Handling audio sample...");
                             boolean success = handleCodecInput(codecInputBuffers, Thread.currentThread().isAlive());
-                            if (success)
-                                handleCodecOutput(codecOutputBuffers, bufferInfo, outputStream);
-
+                            if (success) {handleCodecOutput(codecOutputBuffers, bufferInfo, outputStream);}
+                        }
+                    } catch (IOException e) {
+                        System.out.println("Failed in audioCaptureThread: " + e);
+                    } finally {
+                        audioEncoder.stop();
+                        audioRecord.stop();
+            
+                        audioEncoder.release();
+                        audioRecord.release();
+            
+                        try {
+                            outputStream.close();
                         } catch (IOException e) {
-                            System.out.println("Failed in audioCaptureThread: " + e);
-                        } finally {
-                            audioEncoder.stop();
-                            audioRecord.stop();
-                
-                            audioEncoder.release();
-                            audioRecord.release();
-                
-                            try {
-                                outputStream.close();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
+                            e.printStackTrace();
                         }
                     }
 
@@ -107,7 +106,7 @@ public class MicrophoneFramesSource {
         mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, AUDIO_SAMPLE_RATE);
         mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, AUDIO_CHANNEL_TYPE);
         mediaFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, bufferSize);
-        // mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE);
+        mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, AUDIO_BIT_RATE);
         mediaFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
 
         try {
