@@ -200,12 +200,25 @@ public class MicrophoneFramesSource {
             throws IOException {
         int codecOutputBufferIndex = audioEncoder.dequeueOutputBuffer(bufferInfo, 0);
 
+        if (mBufferInfo.size == 0) {
+            Log.w(TAG, "empty buffer " + codecOutputBufferIndex);
+            //audioEncoder.releaseOutputBuffer(codecOutputBufferIndex, false);
+            return;
+        }
+
         System.out.println("[TESTING] handleCodecOutput starting while loop.");
+
 
         while (codecOutputBufferIndex != MediaCodec.INFO_TRY_AGAIN_LATER) {
             if (codecOutputBufferIndex >= 0) {
                 System.out.println("[TESTING] handleCodecOutput codecOutputBufferIndex is >= 0.");
+
                 ByteBuffer encoderOutputBuffer = codecOutputBuffers[codecOutputBufferIndex];
+
+                if (encoderOutputBuffer == null) {
+                    System.out.println("[TESTING] encodedData is null.");
+                    return;
+                }
 
                 encoderOutputBuffer.position(bufferInfo.offset);
                 encoderOutputBuffer.limit(bufferInfo.offset + bufferInfo.size);
@@ -213,10 +226,13 @@ public class MicrophoneFramesSource {
                 if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != MediaCodec.BUFFER_FLAG_CODEC_CONFIG) {
                     // byte[] header = createAdtsHeader(bufferInfo.size - bufferInfo.offset);
                     // outputStream.write(header);
-
+            
+                    if (encoderOutputBuffer == null) {
+                        System.out.println("[TESTING] encoderOutputBuffer is null.");
+                        return;
+                    }
+                    
                     System.out.println("[TESTING] handleCodecOutput calling sendEncodedFrameToProducerSDK.");
-                    byte[] data = new byte[encoderOutputBuffer.remaining()];
-                    encoderOutputBuffer.get(data);
                     sendEncodedFrameToProducerSDK(encoderOutputBuffer);
                     // outputStream.write(data);
                 }
