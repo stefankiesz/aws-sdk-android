@@ -56,6 +56,33 @@ public class FrameUtility {
                 encodedFrameData);
     }
 
+    public static KinesisVideoFrame createFrameWithTrackID(
+            final MediaCodec.BufferInfo bufferInfo,
+            final long timeCodeMs,
+            final int frameIndex,
+            final ByteBuffer encodedFrameData,
+            final int trackId) {
+
+        final long currentTimeMs = System.currentTimeMillis();
+
+        final int flags = isKeyFrame(bufferInfo) ? FRAME_FLAG_KEY_FRAME : FRAME_FLAG_NONE;
+
+        Log.d(TAG, "frame timestamp: " + currentTimeMs
+                + ", index: " + frameIndex
+                + ", duration: " + FRAME_DURATION_2_MS
+                + ", keyFrame: " + isKeyFrame(bufferInfo)
+                + ", flags: " + flags);
+        // time is zero, currently the stream will use wall clock internally
+        return new KinesisVideoFrame(
+                frameIndex,
+                flags,
+                currentTimeMs * HUNDREDS_OF_NANOS_IN_MS,
+                currentTimeMs * HUNDREDS_OF_NANOS_IN_MS,
+                FRAME_DURATION_2_MS * HUNDREDS_OF_NANOS_IN_MS,
+                encodedFrameData,
+                trackId);
+    }
+
     private static boolean isKeyFrame(final MediaCodec.BufferInfo bufferInfo) {
         return (bufferInfo.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0;
     }

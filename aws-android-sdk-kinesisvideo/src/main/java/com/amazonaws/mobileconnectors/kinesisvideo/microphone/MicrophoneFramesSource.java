@@ -21,7 +21,7 @@ import com.amazonaws.kinesisvideo.producer.KinesisVideoFrame;
 import com.amazonaws.mobileconnectors.kinesisvideo.util.FrameUtility;
 import com.amazonaws.kinesisvideo.producer.Tag;
 import com.amazonaws.kinesisvideo.internal.client.mediasource.MediaSourceSink;
-
+import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_TRACK_ID;
 
 
 
@@ -67,6 +67,8 @@ public class MicrophoneFramesSource {
 
 
     public void startAudioCapture () {
+        System.out.println("[TESTING] startAudioCapture called.");
+
         try {
             audioRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT,
                         AUDIO_SAMPLE_RATE,
@@ -166,6 +168,8 @@ public class MicrophoneFramesSource {
         byte[] audioRecordData = new byte[bufferSize];
         int length = audioRecord.read(audioRecordData, 0, audioRecordData.length);
 
+        System.out.println("[TESTING] handleCodecInput checking for invalid data length.");
+
         if (length == AudioRecord.ERROR_BAD_VALUE ||
                 length == AudioRecord.ERROR_INVALID_OPERATION ||
                 length != bufferSize) {
@@ -174,9 +178,12 @@ public class MicrophoneFramesSource {
             }
         }
 
+        System.out.println("[TESTING] handleCodecInput calling dequeueInputBuffer.");
+
         int codecInputBufferIndex = audioEncoder.dequeueInputBuffer(-1); // (-1 == no timeout)
 
         if (codecInputBufferIndex >= 0) {
+            System.out.println("[TESTING] handleCodecInput codecInputBufferIndex is >= 0.");
             ByteBuffer codecBuffer = codecInputBuffers[codecInputBufferIndex];
             codecBuffer.clear();
             codecBuffer.put(audioRecordData);
@@ -193,8 +200,11 @@ public class MicrophoneFramesSource {
             throws IOException {
         int codecOutputBufferIndex = audioEncoder.dequeueOutputBuffer(bufferInfo, 0);
 
+        System.out.println("[TESTING] handleCodecOutput starting while loop.");
+
         while (codecOutputBufferIndex != MediaCodec.INFO_TRY_AGAIN_LATER) {
             if (codecOutputBufferIndex >= 0) {
+                System.out.println("[TESTING] handleCodecOutput codecOutputBufferIndex is >= 0.");
                 ByteBuffer encoderOutputBuffer = codecOutputBuffers[codecOutputBufferIndex];
 
                 encoderOutputBuffer.position(bufferInfo.offset);
@@ -204,6 +214,7 @@ public class MicrophoneFramesSource {
                     // byte[] header = createAdtsHeader(bufferInfo.size - bufferInfo.offset);
                     // outputStream.write(header);
 
+                    System.out.println("[TESTING] handleCodecOutput calling sendEncodedFrameToProducerSDK.");
                     byte[] data = new byte[encoderOutputBuffer.remaining()];
                     encoderOutputBuffer.get(data);
                     sendEncodedFrameToProducerSDK(encoderOutputBuffer);
@@ -214,6 +225,7 @@ public class MicrophoneFramesSource {
 
                 audioEncoder.releaseOutputBuffer(codecOutputBufferIndex, false);
             } else if (codecOutputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                System.out.println("[TESTING] handleCodecOutput codecOutputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED.");
                 codecOutputBuffers = audioEncoder.getOutputBuffers();
             }
 
@@ -223,7 +235,8 @@ public class MicrophoneFramesSource {
 
     private void sendEncodedFrameToProducerSDK(final ByteBuffer encodedData) {
         final long currentTime = System.currentTimeMillis();
-        Log.d(TAG, "time between frames: " + (currentTime - mLastRecordedFrameTimestamp) + "ms");
+        Log.d(TAG, "[TESTING] Microphone's sendEncodedFrameToProducerSDK time between frames: " + (currentTime - mLastRecordedFrameTimestamp) + "ms");
+
         mLastRecordedFrameTimestamp = currentTime;
 
         if (mFragmentStart == 0) {
@@ -233,11 +246,12 @@ public class MicrophoneFramesSource {
         final ByteBuffer frameData = encodedData;
 
         mFrameAvailableListener.onFrameAvailable(
-                FrameUtility.createFrame(
+                FrameUtility.createFrameWithTrackID(
                         mBufferInfo,
                         1 + currentTime - mFragmentStart,
                         mFrameIndex++,
-                        frameData));
+                        frameData,
+                        AUDIO_TRACK_ID));
     }
 
 

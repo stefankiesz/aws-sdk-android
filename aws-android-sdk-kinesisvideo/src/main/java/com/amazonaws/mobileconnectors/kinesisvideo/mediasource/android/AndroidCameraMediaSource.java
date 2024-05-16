@@ -251,6 +251,8 @@ public class AndroidCameraMediaSource implements MediaSource {
     public void start() throws KinesisVideoException {
         mMediaSourceState = MediaSourceState.RUNNING;
         startEncoding();
+        System.out.println("[TESTING] AndroidCameraMediaSource calling startAudioCapture.");
+        mMicrophoneFramesSource.startAudioCapture();
     }
 
     @Override
