@@ -235,6 +235,9 @@ public class MicrophoneFramesSource {
                     System.out.println("[TESTING] handleCodecOutput calling sendEncodedFrameToProducerSDK.");
                     sendEncodedFrameToProducerSDK(encoderOutputBuffer);
                     // outputStream.write(data);
+                } else {
+                    System.out.println("[TESTING] Audio encoder outputted Codec Config!");
+                    notifyCodecPrivateDataAvailable(encoderOutputBuffer);
                 }
 
                 encoderOutputBuffer.clear();
@@ -248,6 +251,34 @@ public class MicrophoneFramesSource {
             codecOutputBufferIndex = audioEncoder.dequeueOutputBuffer(bufferInfo, 0);
         }
     }
+
+    private void notifyCodecPrivateDataAvailable(final ByteBuffer codecPrivateData) {
+        Log.d(TAG, "[TESTING] got codec private data");
+
+        final byte[] codecPrivateDataArray = new byte[codecPrivateData.remaining()];
+        codecPrivateData.get(codecPrivateDataArray);
+
+        System.out.println("[TESTING] Calling onCodecPrivateData");
+
+        try {
+            mMediaSourceSink.onCodecPrivateData(codecPrivateDataArray, AUDIO_TRACK_ID);
+        } catch (KinesisVideoException e) {
+            Log.e(TAG, "error updating sink with codec private data", e);
+            throw new RuntimeException("error updating sink with codec private data", e);
+        }
+
+        // if (mListener == null) {
+        //     mCodecPrivateDataListener.onCodecPrivateDataAvailable(codecPrivateDataArray);
+        // } else {
+        //     try {
+        //         mListener.onCodecPrivateData(codecPrivateDataArray, mTrackId);
+        //     } catch (KinesisVideoException e) {
+        //         Log.e(TAG, "error updating sink with codec private data", e);
+        //         throw new RuntimeException("error updating sink with codec private data", e);
+        //     }
+        // }
+    }
+
 
     private void sendEncodedFrameToProducerSDK(final ByteBuffer encodedData) {
         final long currentTime = System.currentTimeMillis();

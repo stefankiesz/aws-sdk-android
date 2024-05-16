@@ -309,7 +309,7 @@ public class AndroidCameraMediaSource implements MediaSource {
     private void updateSinkWithPrivateData(final byte[] privateData) {
         try {
             Log.i(TAG, "updating sink with codec private data");
-            mMediaSourceSink.onCodecPrivateData(privateData);
+            mMediaSourceSink.onCodecPrivateData(privateData, VIDEO_TRACK_ID);
         } catch (final KinesisVideoException e) {
             Log.e(TAG, "error updating sink with codec private data", e);
             throw new RuntimeException("error updating sink with codec private data", e);
