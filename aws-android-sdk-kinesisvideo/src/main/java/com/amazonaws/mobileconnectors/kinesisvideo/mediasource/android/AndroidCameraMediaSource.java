@@ -62,7 +62,19 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.MAX_LATENCY;
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.DEFAULT_BITRATE;
 
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_VIDEO_CONTENT_TYPE;
-import com.amazonaws.kinesisvideo.demoapp.contants.DemoTrackInfos;
+
+import static com.amazonaws.kinesisvideo.producer.MkvTrackInfoType.AUDIO;
+import static com.amazonaws.kinesisvideo.producer.MkvTrackInfoType.VIDEO;
+import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_CODEC_ID;
+import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_TRACK_ID;
+import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.VIDEO_CODEC_ID;
+import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.VIDEO_TRACK_ID;
+
+import com.amazonaws.mobileconnectors.kinesisvideo.microphone.MicrophoneFramesSource;
+
+import com.amazonaws.kinesisvideo.producer.TrackInfo;
+
+
 
 
 /**
@@ -84,6 +96,8 @@ public class AndroidCameraMediaSource implements MediaSource {
     private MediaSourceState mMediaSourceState;
     private CameraMediaSourceConfiguration mMediaSourceConfiguration;
     private MediaSourceSink mMediaSourceSink;
+
+    private MicrophoneFramesSource mMicrophoneFramesSource;
 
     public interface OpenCameraCallback {
         void onOpened();
@@ -196,13 +210,19 @@ public class AndroidCameraMediaSource implements MediaSource {
                 null,
                 mMediaSourceConfiguration.getNalAdaptationFlags(),
                 null,
-                DemoTrackInfos.createTrackInfoList()); // TODO: DemoTrackInfos is not present in this version of Java producer, let's copy over a similar class here.
+                new TrackInfo[] {
+                    new TrackInfo(VIDEO_TRACK_ID, VIDEO_CODEC_ID, "VideoTrack", null, VIDEO),
+                    new TrackInfo(AUDIO_TRACK_ID, AUDIO_CODEC_ID, "AudioTrack", null, AUDIO)
+                }
+            );
     }
 
     @Override
     public void initialize(@NonNull final MediaSourceSink mediaSourceSink) throws KinesisVideoException {
         mMediaSourceSink = mediaSourceSink;
         mMediaSourceState = MediaSourceState.INITIALIZED;
+
+        mMicrophoneFramesSource = new MicrophoneFramesSource(mMediaSourceSink);
     }
 
     @Override

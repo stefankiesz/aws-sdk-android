@@ -46,8 +46,11 @@ public class MicrophoneFramesSource {
     private long mFragmentStart = 0;
     MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
 
-    private MediaSourceSink mMediaSourceSink; // TODO: Should probably pass this in from AndroidCameraMediaSource via a constructor for this class
+    private MediaSourceSink mMediaSourceSink;
 
+    public MicrophoneFramesSource(MediaSourceSink mediaSourceSink) {
+        mMediaSourceSink = mediaSourceSink;
+    }
 
     private FrameAvailableListener mFrameAvailableListener = new FrameAvailableListener() {
         @Override
