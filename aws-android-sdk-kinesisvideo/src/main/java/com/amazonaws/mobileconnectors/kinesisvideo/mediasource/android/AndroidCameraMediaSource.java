@@ -62,7 +62,7 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.MAX_LATENCY;
 
 /**
  * Android camera wrapper
-*/
+ */
 public class AndroidCameraMediaSource implements MediaSource {
 
     private static final String TAG = AndroidCameraMediaSource.class.getSimpleName();

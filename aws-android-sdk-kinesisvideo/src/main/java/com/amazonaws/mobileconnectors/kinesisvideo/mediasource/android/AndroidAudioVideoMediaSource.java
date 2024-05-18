@@ -76,10 +76,6 @@ import com.amazonaws.kinesisvideo.producer.TrackInfo;
 
 
 
-
-/**
- * Android camera wrapper
-*/
 public class AndroidAudioVideoMediaSource implements MediaSource {
 
     private static final String TAG = AndroidAudioVideoMediaSource.class.getSimpleName();
