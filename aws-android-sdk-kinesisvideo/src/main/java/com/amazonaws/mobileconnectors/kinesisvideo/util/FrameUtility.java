@@ -68,6 +68,7 @@ public class FrameUtility {
         final int flags = isKeyFrame(bufferInfo) ? FRAME_FLAG_KEY_FRAME : FRAME_FLAG_NONE;
 
         Log.d(TAG, "frame timestamp: " + currentTimeMs
+                + ", trackId: " + trackId
                 + ", index: " + frameIndex
                 + ", duration: " + FRAME_DURATION_2_MS
                 + ", keyFrame: " + isKeyFrame(bufferInfo)
