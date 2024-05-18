@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.amazonaws.mobileconnectors.kinesisvideo.mediasource.android;
+package com.amazonaws.mobileconnectors.kinesisvideo.audiovideo;
 
 import java.util.Arrays;
 import java.util.LinkedList;

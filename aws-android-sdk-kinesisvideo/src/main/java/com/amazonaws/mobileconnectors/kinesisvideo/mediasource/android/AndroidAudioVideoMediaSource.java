@@ -70,7 +70,8 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_TRACK_ID
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.VIDEO_CODEC_ID;
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.VIDEO_TRACK_ID;
 
-import com.amazonaws.mobileconnectors.kinesisvideo.microphone.MicrophoneSource;
+import com.amazonaws.mobileconnectors.kinesisvideo.audiovideo.CameraSource;
+import com.amazonaws.mobileconnectors.kinesisvideo.audiovideo.MicrophoneSource;
 
 import com.amazonaws.kinesisvideo.producer.TrackInfo;
 
