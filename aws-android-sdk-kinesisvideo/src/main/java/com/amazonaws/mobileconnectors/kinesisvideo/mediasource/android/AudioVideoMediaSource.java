@@ -77,9 +77,9 @@ import com.amazonaws.kinesisvideo.producer.TrackInfo;
 
 
 
-public class AndroidAudioVideoMediaSource implements MediaSource {
+public class AudioVideoMediaSource implements MediaSource {
 
-    private static final String TAG = AndroidAudioVideoMediaSource.class.getSimpleName();
+    private static final String TAG = AudioVideoMediaSource.class.getSimpleName();
 
 
     private final Context mContext;
@@ -88,13 +88,13 @@ public class AndroidAudioVideoMediaSource implements MediaSource {
     private List<Surface> mPreviewSurfaces;
 
     private MediaSourceState mMediaSourceState;
-    private CameraMediaSourceConfiguration mAudioVideoMediaSourceConfiguration;
     private MediaSourceSink mMediaSourceSink;
 
+    private AudioVideoMediaSourceConfiguration mAudioVideoMediaSourceConfiguration;
     private CameraSource mCameraSource;
     private MicrophoneSource mMicrophoneSource;
 
-    public AndroidAudioVideoMediaSource(final String streamName, final Context context) {
+    public AudioVideoMediaSource(final String streamName, final Context context) {
         mContext = context;
         mStreamName = streamName;
     }
@@ -174,17 +174,17 @@ public class AndroidAudioVideoMediaSource implements MediaSource {
     public void start() throws KinesisVideoException {
         mMediaSourceState = MediaSourceState.RUNNING;
 
-        System.out.println("[TESTING] AndroidAudioVideoMediaSource calling startVideoCapture.");
+        System.out.println("[TESTING] AudioVideoMediaSource calling startVideoCapture.");
         mCameraSource.startVideoCapture();
-        System.out.println("[TESTING] AndroidAudioVideoMediaSource calling startAudioCapture.");
+        System.out.println("[TESTING] AudioVideoMediaSource calling startAudioCapture.");
         mMicrophoneSource.startAudioCapture();
     }
 
     @Override
     public void stop() throws KinesisVideoException {
-        System.out.println("[TESTING] AndroidAudioVideoMediaSource calling stopVideoCapture.");
+        System.out.println("[TESTING] AudioVideoMediaSource calling stopVideoCapture.");
         mCameraSource.stopVideoCapture();
-        System.out.println("[TESTING] AndroidAudioVideoMediaSource calling stopAudioCapture.");
+        System.out.println("[TESTING] AudioVideoMediaSource calling stopAudioCapture.");
         mMicrophoneSource.stopAudioCapture();
 
         mMediaSourceState = MediaSourceState.STOPPED;
