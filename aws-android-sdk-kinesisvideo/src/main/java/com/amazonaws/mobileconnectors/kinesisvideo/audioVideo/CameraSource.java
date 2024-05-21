@@ -43,6 +43,8 @@ import com.amazonaws.mobileconnectors.kinesisvideo.camera.CameraFramesSource;
 import com.amazonaws.mobileconnectors.kinesisvideo.camera.EncodingCancellationToken;
 import com.amazonaws.mobileconnectors.kinesisvideo.encoding.EncoderWrapper.CodecPrivateDataAvailableListener;
 import com.amazonaws.mobileconnectors.kinesisvideo.encoding.EncoderWrapper.FrameAvailableListener;
+import com.amazonaws.mobileconnectors.kinesisvideo.mediasource.android.AudioVideoMediaSourceConfiguration;
+
 
 import static com.amazonaws.kinesisvideo.producer.Time.HUNDREDS_OF_NANOS_IN_AN_HOUR;
 import static com.amazonaws.kinesisvideo.producer.Time.NANOS_IN_A_TIME_UNIT;
@@ -83,7 +85,6 @@ public class CameraSource {
     private static final int TWO_FRAMES_BUFFER = 2;
 
     private final Context mContext;
-    private final String mStreamName;
 
     private CameraFramesSource mCameraFramesSource;
     private EncodingCancellationToken mEncodingCancellationToken;
@@ -99,14 +100,13 @@ public class CameraSource {
                             + ", received " + configuration);
         }
 
-        mMediaSourceConfiguration = (AudioVideoMediaSourceConfiguration) configuration;
+        mAudioVideoMediaSourceConfiguration = (AudioVideoMediaSourceConfiguration) configuration;
     }
 
     public CameraSource(MediaSourceSink mediaSourceSink, final AudioVideoMediaSourceConfiguration configuration, final Context context) {
         mMediaSourceSink = mediaSourceSink;
         mAudioVideoMediaSourceConfiguration = configuration;
         mContext = context;
-
         mEncodingCancellationToken = new EncodingCancellationToken();
         mPreviewSurfaces = new LinkedList<>();
         mCameraFramesSource = createFramesSource(createImageReader());
@@ -140,7 +140,14 @@ public class CameraSource {
     }
 
     public void stopVideoCapture() throws KinesisVideoException {
-        stopEncoding();
+        Log.i(TAG, "stopping video capturing");
+
+        if (mEncodingCancellationToken == null) {
+            return;
+        }
+
+        mEncodingCancellationToken.cancelEncoding();
+        mEncodingCancellationToken = null;
     }
 
     public void startVideoCapture() {

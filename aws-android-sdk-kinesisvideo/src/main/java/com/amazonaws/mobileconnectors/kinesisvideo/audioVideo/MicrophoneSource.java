@@ -1,4 +1,4 @@
-package com.amazonaws.mobileconnectors.kinesisvideo.microphone;
+package com.amazonaws.mobileconnectors.kinesisvideo.audiovideo;
 
 
 import android.media.AudioFormat;
@@ -38,12 +38,11 @@ public class MicrophoneSource {
 
     private final OutputStream outputStream = new ByteArrayOutputStream();
 
-    private AudioVideoMediaSourceConfiguration mAudioVideoMediaSourceConfiguration;
 
     private AudioRecord audioRecord = null;
     MediaCodec audioEncoder = null;
     private Thread audioCaptureThread = null;
-    private boolean isRecording = false;
+    private boolean isCapturing = false;
     private long mLastRecordedFrameTimestamp = 0;
     private int mFrameIndex = 0;
     private long mFragmentStart = 0;
@@ -82,7 +81,7 @@ public class MicrophoneSource {
             audioEncoder = createAudioEncoder();
             audioEncoder.start();
             audioRecord.startRecording();
-            isRecording = true;
+            isCapturing = true;
 
             audioCaptureThread = new Thread(new Runnable() {
                 public void run() {
@@ -92,7 +91,7 @@ public class MicrophoneSource {
 
 
                     try {
-                        while (true) {
+                        while (isCapturing) {
                             // System.out.println("[TESTING] Handling audio sample...");
                             boolean success = handleCodecInput(codecInputBuffers, Thread.currentThread().isAlive());
                             if (success) {handleCodecOutput(codecOutputBuffers, mBufferInfo, outputStream);}
@@ -124,7 +123,12 @@ public class MicrophoneSource {
         } catch (IOException e) {
             System.out.println("Failed in audioCaptureThread: " + e);
         }
-    } 
+    }
+
+    public void stopAudioCapture() {
+        Log.i(TAG, "stopping audio capturing");
+        isCapturing = false;
+    }
 
     private MediaCodec createAudioEncoder() throws IOException {
 

@@ -154,7 +154,7 @@ public class AudioVideoMediaSource implements MediaSource {
         mMediaSourceSink = mediaSourceSink;
         mMediaSourceState = MediaSourceState.INITIALIZED;
 
-        mVideoSource = new mVideoSource(mMediaSourceSink);
+        mCameraSource = new CameraSource(mMediaSourceSink, mAudioVideoMediaSourceConfiguration, mContext);
         mMicrophoneSource = new MicrophoneSource(mMediaSourceSink);
 
     }
