@@ -23,18 +23,18 @@ import com.amazonaws.kinesisvideo.producer.Tag;
 import com.amazonaws.kinesisvideo.internal.client.mediasource.MediaSourceSink;
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_TRACK_ID;
 
+import java.util.concurrent.CountDownLatch;
 
 
 public class MicrophoneSource {
     private static final String TAG = MicrophoneSource.class.getSimpleName();
 
     // TODO: Make the below configured through mAudioVideoMediaSourceConfiguration
-    private static final int AUDIO_SAMPLE_RATE = 8000; // mMediaSourceConfiguration.getSampleRate(), Hardcoded sample rate for now (emulator requires 8000);
+    private static final int AUDIO_SAMPLE_RATE = 44100; // mMediaSourceConfiguration.getSampleRate(), Hardcoded sample rate for now (emulator requires 8000);
     private static final int AUDIO_CHANNEL_TYPE = AudioFormat.CHANNEL_IN_MONO; // Android Docs: "CHANNEL_IN_MONO is guaranteed to work on all devices."
     private static final int AUDIO_ENCODING_TYPE = AudioFormat.ENCODING_PCM_16BIT; // Android Docs: "ENCODING_PCM_16BIT is Guaranteed to be supported by devices."
-    private static final int AUDIO_BIT_RATE = 6000;
-
-    private final int bufferSize = AudioRecord.getMinBufferSize(AUDIO_SAMPLE_RATE, AUDIO_CHANNEL_TYPE, AUDIO_ENCODING_TYPE); 
+    private static final int AUDIO_BIT_RATE = 256 * 1024;
+    private final int bufferSize = AudioRecord.getMinBufferSize(AUDIO_SAMPLE_RATE, AUDIO_CHANNEL_TYPE, AUDIO_ENCODING_TYPE) * 2; 
 
     private final OutputStream outputStream = new ByteArrayOutputStream();
 
@@ -42,7 +42,7 @@ public class MicrophoneSource {
     private AudioRecord audioRecord = null;
     MediaCodec audioEncoder = null;
     private Thread audioCaptureThread = null;
-    private boolean isCapturing = false;
+    private volatile boolean isCapturing = false;
     private long mLastRecordedFrameTimestamp = 0;
     private int mFrameIndex = 0;
     private long mFragmentStart = 0;
@@ -50,8 +50,13 @@ public class MicrophoneSource {
 
     private MediaSourceSink mMediaSourceSink;
 
-    public MicrophoneSource(MediaSourceSink mediaSourceSink) {
+    private volatile CountDownLatch mLatch;    
+
+
+
+    public MicrophoneSource(MediaSourceSink mediaSourceSink, CountDownLatch latch) {
         mMediaSourceSink = mediaSourceSink;
+        mLatch = latch;
     }
 
     private FrameAvailableListener mFrameAvailableListener = new FrameAvailableListener() {
@@ -94,7 +99,7 @@ public class MicrophoneSource {
                         while (isCapturing) {
                             // System.out.println("[TESTING] Handling audio sample...");
                             boolean success = handleCodecInput(codecInputBuffers, Thread.currentThread().isAlive());
-                            if (success) {handleCodecOutput(codecOutputBuffers, mBufferInfo, outputStream);}
+                            if (success) {handleCodecOutput(codecOutputBuffers, outputStream);}
                         }
                     } catch (IOException e) {
                         System.out.println("Failed in audioCaptureThread: " + e);
@@ -164,7 +169,7 @@ public class MicrophoneSource {
         byte[] audioRecordData = new byte[bufferSize];
         int length = audioRecord.read(audioRecordData, 0, audioRecordData.length);
 
-        System.out.println("[TESTING] handleCodecInput checking for invalid data length.");
+        // System.out.println("[TESTING] handleCodecInput checking for invalid data length.");
 
         if (length == AudioRecord.ERROR_BAD_VALUE ||
                 length == AudioRecord.ERROR_INVALID_OPERATION ||
@@ -172,14 +177,15 @@ public class MicrophoneSource {
             if (length != bufferSize) {
                 return false;
             }
+            return false; // testing with this here too
         }
 
-        System.out.println("[TESTING] handleCodecInput calling dequeueInputBuffer.");
+        // System.out.println("[TESTING] handleCodecInput calling dequeueInputBuffer.");
 
         int codecInputBufferIndex = audioEncoder.dequeueInputBuffer(-1); // (-1 == no timeout)
 
         if (codecInputBufferIndex >= 0) {
-            System.out.println("[TESTING] handleCodecInput codecInputBufferIndex is >= 0.");
+            // System.out.println("[TESTING] handleCodecInput codecInputBufferIndex is >= 0.");
             ByteBuffer codecBuffer = codecInputBuffers[codecInputBufferIndex];
             codecBuffer.clear();
             codecBuffer.put(audioRecordData);
@@ -191,10 +197,9 @@ public class MicrophoneSource {
 
 
     private void handleCodecOutput(ByteBuffer[] codecOutputBuffers,
-                                   MediaCodec.BufferInfo bufferInfo,
                                    OutputStream outputStream)
             throws IOException {
-        int codecOutputBufferIndex = audioEncoder.dequeueOutputBuffer(bufferInfo, 0);
+        int codecOutputBufferIndex = audioEncoder.dequeueOutputBuffer(mBufferInfo, 0);
 
         if (mBufferInfo.size == 0) {
             Log.w(TAG, "empty buffer " + codecOutputBufferIndex);
@@ -202,12 +207,12 @@ public class MicrophoneSource {
             return;
         }
 
-        System.out.println("[TESTING] handleCodecOutput starting while loop.");
+        // System.out.println("[TESTING] handleCodecOutput starting while loop.");
 
 
         while (codecOutputBufferIndex != MediaCodec.INFO_TRY_AGAIN_LATER) {
             if (codecOutputBufferIndex >= 0) {
-                System.out.println("[TESTING] handleCodecOutput codecOutputBufferIndex is >= 0.");
+                // System.out.println("[TESTING] handleCodecOutput codecOutputBufferIndex is >= 0.");
 
                 ByteBuffer encoderOutputBuffer = codecOutputBuffers[codecOutputBufferIndex];
 
@@ -216,23 +221,27 @@ public class MicrophoneSource {
                     return;
                 }
 
-                encoderOutputBuffer.position(bufferInfo.offset);
-                encoderOutputBuffer.limit(bufferInfo.offset + bufferInfo.size);
+                encoderOutputBuffer.position(mBufferInfo.offset);
+                encoderOutputBuffer.limit(mBufferInfo.offset + mBufferInfo.size);
 
-                if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != MediaCodec.BUFFER_FLAG_CODEC_CONFIG) {
-                    // byte[] header = createAdtsHeader(bufferInfo.size - bufferInfo.offset);
-                    // outputStream.write(header);
+                if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != MediaCodec.BUFFER_FLAG_CODEC_CONFIG) {
             
                     if (encoderOutputBuffer == null) {
                         System.out.println("[TESTING] encoderOutputBuffer is null.");
                         return;
                     }
+
+                    try {
+                        System.out.println("[TESTING] startAudioCapture is waiting for the firstVideoFrameSent latch.");
+                        mLatch.await();
+                        System.out.println("[TESTING] startAudioCapture is DONE waiting for the firstVideoFrameSent latch.");
+                    } catch (InterruptedException e) {
+                        System.out.println("MicrophoneSource interrupted waiting on first video frame to be sent.");
+                    }
                     
-                    System.out.println("[TESTING] handleCodecOutput calling sendEncodedFrameToProducerSDK.");
                     sendEncodedFrameToProducerSDK(encoderOutputBuffer);
-                    // outputStream.write(data);
                 } else {
-                    System.out.println("[TESTING] Audio encoder outputted Codec Config!");
+                    System.out.println("[TESTING] Audio encoder outputted Codec Config (CPD)!");
                     notifyCodecPrivateDataAvailable(encoderOutputBuffer);
                 }
 
@@ -244,40 +253,26 @@ public class MicrophoneSource {
                 codecOutputBuffers = audioEncoder.getOutputBuffers();
             }
 
-            codecOutputBufferIndex = audioEncoder.dequeueOutputBuffer(bufferInfo, 0);
+            codecOutputBufferIndex = audioEncoder.dequeueOutputBuffer(mBufferInfo, 0);
         }
     }
 
     private void notifyCodecPrivateDataAvailable(final ByteBuffer codecPrivateData) {
-        Log.d(TAG, "[TESTING] got codec private data");
-
         final byte[] codecPrivateDataArray = new byte[codecPrivateData.remaining()];
         codecPrivateData.get(codecPrivateDataArray);
 
-        System.out.println("[TESTING] Calling onCodecPrivateData");
-
         try {
+            System.out.println("[TESTING] Calling onCodecPrivateData");
             mMediaSourceSink.onCodecPrivateData(codecPrivateDataArray, AUDIO_TRACK_ID);
         } catch (KinesisVideoException e) {
             Log.e(TAG, "error updating sink with codec private data", e);
             throw new RuntimeException("error updating sink with codec private data", e);
         }
-
-        // if (mListener == null) {
-        //     mCodecPrivateDataListener.onCodecPrivateDataAvailable(codecPrivateDataArray);
-        // } else {
-        //     try {
-        //         mListener.onCodecPrivateData(codecPrivateDataArray, mTrackId);
-        //     } catch (KinesisVideoException e) {
-        //         Log.e(TAG, "error updating sink with codec private data", e);
-        //         throw new RuntimeException("error updating sink with codec private data", e);
-        //     }
-        // }
     }
-
 
     private void sendEncodedFrameToProducerSDK(final ByteBuffer encodedData) {
         final long currentTime = System.currentTimeMillis();
+        
         Log.d(TAG, "[TESTING] Microphone's sendEncodedFrameToProducerSDK time between frames: " + (currentTime - mLastRecordedFrameTimestamp) + "ms");
 
         mLastRecordedFrameTimestamp = currentTime;
@@ -288,12 +283,16 @@ public class MicrophoneSource {
 
         final ByteBuffer frameData = encodedData;
 
-        mFrameAvailableListener.onFrameAvailable(
+        if(isCapturing) {
+            mFrameAvailableListener.onFrameAvailable(
                 FrameUtility.createFrameWithTrackID(
                         mBufferInfo,
-                        1 + currentTime - mFragmentStart,
+                        currentTime,
                         mFrameIndex++,
                         frameData,
                         AUDIO_TRACK_ID));
+        } else {
+            System.out.println("[TESTING] Not sending Frame to KVS, isCapturing is false.");
+        }
     }
 }

@@ -75,6 +75,8 @@ import com.amazonaws.mobileconnectors.kinesisvideo.audiovideo.MicrophoneSource;
 
 import com.amazonaws.kinesisvideo.producer.TrackInfo;
 
+import java.util.concurrent.CountDownLatch;
+
 
 
 public class AudioVideoMediaSource implements MediaSource {
@@ -93,6 +95,9 @@ public class AudioVideoMediaSource implements MediaSource {
     private AudioVideoMediaSourceConfiguration mAudioVideoMediaSourceConfiguration;
     private CameraSource mCameraSource;
     private MicrophoneSource mMicrophoneSource;
+
+    private volatile CountDownLatch mLatch;
+
 
     public AudioVideoMediaSource(final String streamName, final Context context) {
         mContext = context;
@@ -116,7 +121,7 @@ public class AudioVideoMediaSource implements MediaSource {
     }
 
     @Override
-    public StreamInfo getStreamInfo() throws KinesisVideoException { 
+    public StreamInfo getStreamInfo() throws KinesisVideoException {
         return new StreamInfo(VERSION_ZERO,
                 mStreamName,
                 StreamInfo.StreamingType.STREAMING_TYPE_REALTIME,
@@ -153,9 +158,10 @@ public class AudioVideoMediaSource implements MediaSource {
     public void initialize(@NonNull final MediaSourceSink mediaSourceSink) throws KinesisVideoException {
         mMediaSourceSink = mediaSourceSink;
         mMediaSourceState = MediaSourceState.INITIALIZED;
+        mLatch = new CountDownLatch(1);
 
-        mCameraSource = new CameraSource(mMediaSourceSink, mAudioVideoMediaSourceConfiguration, mContext);
-        mMicrophoneSource = new MicrophoneSource(mMediaSourceSink);
+        mCameraSource = new CameraSource(mMediaSourceSink, mAudioVideoMediaSourceConfiguration, mContext, mLatch);
+        mMicrophoneSource = new MicrophoneSource(mMediaSourceSink, mLatch);
 
     }
 

@@ -23,6 +23,10 @@ import android.media.MediaCodec;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.producer.KinesisVideoFrame;
+import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_TRACK_ID;
+
+import java.text.SimpleDateFormat;  
+import java.util.Date;
 
 public class FrameUtility {
     private static final String TAG = FrameUtility.class.getSimpleName();
@@ -65,12 +69,30 @@ public class FrameUtility {
 
         final long currentTimeMs = System.currentTimeMillis();
 
-        final int flags = isKeyFrame(bufferInfo) ? FRAME_FLAG_KEY_FRAME : FRAME_FLAG_NONE;
+        int flags = isKeyFrame(bufferInfo) ? FRAME_FLAG_KEY_FRAME : FRAME_FLAG_NONE;
+
+        if(trackId == AUDIO_TRACK_ID) {
+                flags = 0;
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                // sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+                Date currentDate = new Date(currentTimeMs);
+                System.out.println("[TESTING] Received audio frame with timestamp: " + sdf.format(currentDate));
+        } else {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                Date currentDate = new Date(currentTimeMs);
+                System.out.println("[TESTING] Received video frame with timestamp: " + sdf.format(currentDate));
+        }
+
+
+        int duration = 0;
+        // if(trackId == AUDIO_TRACK_ID) {
+        //         duration = 0;
+        // } 
 
         Log.d(TAG, "frame timestamp: " + currentTimeMs
                 + ", trackId: " + trackId
                 + ", index: " + frameIndex
-                + ", duration: " + FRAME_DURATION_2_MS
+                + ", duration: " +  duration // Audio frames should be 0 duration
                 + ", keyFrame: " + isKeyFrame(bufferInfo)
                 + ", flags: " + flags);
         // time is zero, currently the stream will use wall clock internally
@@ -79,7 +101,7 @@ public class FrameUtility {
                 flags,
                 currentTimeMs * HUNDREDS_OF_NANOS_IN_MS,
                 currentTimeMs * HUNDREDS_OF_NANOS_IN_MS,
-                FRAME_DURATION_2_MS * HUNDREDS_OF_NANOS_IN_MS,
+                duration * HUNDREDS_OF_NANOS_IN_MS,
                 encodedFrameData,
                 trackId);
     }

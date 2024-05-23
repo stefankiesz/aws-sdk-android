@@ -245,6 +245,8 @@ public class StreamInfo {
                 || (trackInfos[0].getTrackType().equals(MkvTrackInfoType.AUDIO)
                 && trackInfos[1].getTrackType().equals(MkvTrackInfoType.VIDEO)))) {
             // TODO change back to FRAME_ORDERING_MODE_MULTI_TRACK_AV once backend is fixed.
+            // return FrameOrderMode.FRAME_ORDERING_MODE_MULTI_TRACK_AV;
+            System.out.println("[TESTING] called fixUpFrameOrderMode, returning FRAME_ORDERING_MODE_MULTI_TRACK_AV_COMPARE_PTS_ONE_MS_COMPENSATE.");
             return FrameOrderMode.FRAME_ORDERING_MODE_MULTI_TRACK_AV_COMPARE_PTS_ONE_MS_COMPENSATE;
         }
         return FrameOrderMode.FRAME_ORDER_MODE_PASS_THROUGH;

@@ -75,6 +75,7 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.VIDEO_TRACK_ID
 
 import com.amazonaws.kinesisvideo.producer.TrackInfo;
 
+import java.util.concurrent.CountDownLatch;
 
 
 
@@ -93,6 +94,12 @@ public class CameraSource {
     private AudioVideoMediaSourceConfiguration mAudioVideoMediaSourceConfiguration;
     private MediaSourceSink mMediaSourceSink;
 
+    private volatile boolean firstFrameSent = false;
+
+    private volatile CountDownLatch mLatch;    
+
+
+
     public void configure(final MediaSourceConfiguration configuration) {
         if (!(configuration instanceof AudioVideoMediaSourceConfiguration)) {
             throw new IllegalArgumentException(
@@ -103,12 +110,14 @@ public class CameraSource {
         mAudioVideoMediaSourceConfiguration = (AudioVideoMediaSourceConfiguration) configuration;
     }
 
-    public CameraSource(MediaSourceSink mediaSourceSink, final AudioVideoMediaSourceConfiguration configuration, final Context context) {
+    public CameraSource(MediaSourceSink mediaSourceSink, final AudioVideoMediaSourceConfiguration configuration, final Context context, CountDownLatch latch) {
         mMediaSourceSink = mediaSourceSink;
         mAudioVideoMediaSourceConfiguration = configuration;
         mContext = context;
         mEncodingCancellationToken = new EncodingCancellationToken();
         mPreviewSurfaces = new LinkedList<>();
+        mLatch = latch;
+
         mCameraFramesSource = createFramesSource(createImageReader());
     }
 
@@ -125,7 +134,8 @@ public class CameraSource {
                 mEncodingCancellationToken);
 
         cameraFramesSource.setCodecPrivateDataListener(waitForCodecPrivateData());
-        cameraFramesSource.setFramesListener(pushFrameToSink());
+        cameraFramesSource.setFramesListener(new FrameAvailableListenerImpl());
+
         return cameraFramesSource;
     }
 
@@ -178,17 +188,20 @@ public class CameraSource {
         }
     }
 
-    private FrameAvailableListener pushFrameToSink() {
-        return new FrameAvailableListener() {
-            @Override
-            public void onFrameAvailable(final KinesisVideoFrame frame) {
-                try {
-                    Log.i(TAG, "updating sink with frame");
-                    mMediaSourceSink.onFrame(frame);
-                } catch (final KinesisVideoException e) {
-                    Log.e(TAG, "error updating sink with frame", e);
+    private class FrameAvailableListenerImpl implements FrameAvailableListener {
+        @Override
+        public void onFrameAvailable(final KinesisVideoFrame frame) {
+            try {
+                Log.i(TAG, "updating sink with frame");
+                mMediaSourceSink.onFrame(frame);
+
+                if (!firstFrameSent) {
+                    mLatch.countDown();
+                    firstFrameSent = true;
                 }
+            } catch (final KinesisVideoException e) {
+                Log.e(TAG, "error updating sink with frame", e);
             }
-        };
+        }
     }
 }

@@ -201,7 +201,7 @@ public class EncoderWrapper {
         mFrameAvailableListener.onFrameAvailable(
                 FrameUtility.createFrameWithTrackID(
                         mBufferInfo,
-                        1 + currentTime - mFragmentStart,
+                        currentTime,
                         mFrameIndex++,
                         frameData,
                         VIDEO_TRACK_ID));
