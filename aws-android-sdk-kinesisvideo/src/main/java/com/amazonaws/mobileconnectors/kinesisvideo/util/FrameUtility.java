@@ -28,6 +28,9 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.AUDIO_TRACK_ID
 import java.text.SimpleDateFormat;  
 import java.util.Date;
 
+import com.amazonaws.mobileconnectors.kinesisvideo.audiovideo.TimeStampProvider;
+
+
 public class FrameUtility {
     private static final String TAG = FrameUtility.class.getSimpleName();
     private static final int FRAME_FLAG_KEY_FRAME = 1;
@@ -67,10 +70,11 @@ public class FrameUtility {
             final ByteBuffer encodedFrameData,
             final int trackId) {
 
-        final long currentTimeMs = System.currentTimeMillis();
+        final long currentTimeMs = TimeStampProvider.getUniqueTimestamp();
 
         int flags = isKeyFrame(bufferInfo) ? FRAME_FLAG_KEY_FRAME : FRAME_FLAG_NONE;
 
+        // TODO: SimpleDateFormat not thread safe
         if(trackId == AUDIO_TRACK_ID) {
                 flags = 0;
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
