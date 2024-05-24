@@ -235,9 +235,15 @@ public class CameraAdapter {
                 previewRequestBuilder.addTarget(surface);
             }
 
+            // System.out.println("Setting JPEG_ORIENTATION");
+
             previewRequestBuilder.set(
                     CaptureRequest.CONTROL_MODE,
                     CameraMetadata.CONTROL_MODE_AUTO);
+
+            // previewRequestBuilder.set(
+            //         CaptureRequest.JPEG_ORIENTATION,
+            //         90);
 
             mActivePreviewSession.setRepeatingRequest(
                     previewRequestBuilder.build(),

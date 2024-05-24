@@ -50,7 +50,8 @@ public class MicrophoneSource {
 
     private MediaSourceSink mMediaSourceSink;
 
-    private volatile CountDownLatch mLatch;    
+    private volatile CountDownLatch mLatch;
+    private volatile boolean firstVideoFrameSent = false;
 
 
 
@@ -231,6 +232,7 @@ public class MicrophoneSource {
                         return;
                     }
 
+                    // if()
                     try {
                         System.out.println("[TESTING] startAudioCapture is waiting for the firstVideoFrameSent latch.");
                         mLatch.await();
@@ -238,7 +240,7 @@ public class MicrophoneSource {
                     } catch (InterruptedException e) {
                         System.out.println("MicrophoneSource interrupted waiting on first video frame to be sent.");
                     }
-                    
+
                     sendEncodedFrameToProducerSDK(encoderOutputBuffer);
                 } else {
                     System.out.println("[TESTING] Audio encoder outputted Codec Config (CPD)!");

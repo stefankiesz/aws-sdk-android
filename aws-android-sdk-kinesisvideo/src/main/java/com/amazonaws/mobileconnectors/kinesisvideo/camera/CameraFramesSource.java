@@ -22,12 +22,16 @@ import static com.amazonaws.mobileconnectors.kinesisvideo.encoding.EncoderWrappe
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.ByteBuffer;
 
 import android.content.Context;
 import android.media.Image;
 import android.media.ImageReader;
 import android.util.Log;
 import android.view.Surface;
+import android.graphics.Bitmap;
+import android.graphics.Matrix;
+import android.graphics.ImageFormat;
 
 import com.amazonaws.kinesisvideo.client.mediasource.CameraMediaSourceConfiguration;
 import com.amazonaws.kinesisvideo.common.exception.KinesisVideoException;
@@ -65,6 +69,7 @@ public class CameraFramesSource {
             @Override
             public void onImageAvailable(final ImageReader imageReader) {
                 final Image image = imageReader.acquireNextImage();
+                // image = rotateImage(image, 90);
                 mEncoderWrapper.encodeFrame(image, mEncodingCancellationToken.isEncodingCancelled());
                 image.close();
 
@@ -75,6 +80,49 @@ public class CameraFramesSource {
             }
         };
     }
+
+
+
+
+
+// private Image rotateImage(Image image, int degrees) {
+//     Bitmap srcBitmap = imageToBitmap(image);
+//     Bitmap rotatedBitmap = rotateBitmap(srcBitmap, degrees);
+//     return bitmapToImage(rotatedBitmap);
+// }
+
+// public Bitmap imageToBitmap(Image image) {
+//     Image.Plane[] planes = image.getPlanes();
+//     ByteBuffer buffer = planes[0].getBuffer();
+//     int width = image.getWidth();
+//     int height = image.getHeight();
+//     int pixelStride = planes[0].getPixelStride();
+//     int rowStride = planes[0].getRowStride();
+
+//     // Create Bitmap
+//     Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+//     bitmap.copyPixelsFromBuffer(buffer);
+
+//     return bitmap;
+// }
+
+
+// private Bitmap rotateBitmap(Bitmap srcBitmap, int degrees) {
+//     Matrix matrix = new Matrix();
+//     matrix.postRotate(degrees);
+//     return Bitmap.createBitmap(srcBitmap, 0, 0, srcBitmap.getWidth(), srcBitmap.getHeight(), matrix, true);
+// }
+
+// public Image bitmapToImage(Bitmap bitmap) {
+//     ImageReader reader = ImageReader.newInstance(bitmap.getWidth(), bitmap.getHeight(), ImageFormat.YUV_420_888, 2);
+//     Image.Plane[] planes = reader.acquireLatestImage().getPlanes();
+//     ByteBuffer buffer = planes[0].getBuffer();
+//     bitmap.copyPixelsToBuffer(buffer);
+//     return reader.acquireLatestImage();
+// }
+
+
+
 
     public void startEncoding(final Context context,
                               final List<Surface> previewSurfaces,

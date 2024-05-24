@@ -23,7 +23,6 @@ import java.util.List;
 
 import android.content.Context;
 import android.graphics.ImageFormat;
-import android.media.ImageReader;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import android.util.Log;

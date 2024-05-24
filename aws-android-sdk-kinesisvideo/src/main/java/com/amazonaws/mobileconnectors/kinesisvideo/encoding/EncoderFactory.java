@@ -45,15 +45,15 @@ public class EncoderFactory {
     private static MediaCodec createMediaCodec(final CameraMediaSourceConfiguration mediaSourceConfiguration) {
         try {
             final MediaCodec encoder = MediaCodec.createEncoderByType(mediaSourceConfiguration.getEncoderMimeType());
-            try {
-                encoder.configure(
-                        configureMediaFormat(mediaSourceConfiguration,
-                                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar),
-                        NULL_SURFACE,
-                        NULL_CRYPTO,
-                        MediaCodec.CONFIGURE_FLAG_ENCODE);
-                logSupportedColorFormats(encoder, mediaSourceConfiguration);
-            } catch (MediaCodec.CodecException e) {
+            // try {
+                // encoder.configure(
+                //         configureMediaFormat(mediaSourceConfiguration,
+                //                 MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar),
+                //         NULL_SURFACE,
+                //         NULL_CRYPTO,
+                //         MediaCodec.CONFIGURE_FLAG_ENCODE);
+                // logSupportedColorFormats(encoder, mediaSourceConfiguration);
+            // } catch (MediaCodec.CodecException e) {
                 Log.d(TAG, "Failed configuring MediaCodec with Semi-planar pixel format, falling back to planar");
 
                 encoder.configure(
@@ -63,7 +63,7 @@ public class EncoderFactory {
                         NULL_CRYPTO,
                         MediaCodec.CONFIGURE_FLAG_ENCODE);
                 logSupportedColorFormats(encoder, mediaSourceConfiguration);
-            }
+            // }
 
             return encoder;
         } catch (final IOException e) {
