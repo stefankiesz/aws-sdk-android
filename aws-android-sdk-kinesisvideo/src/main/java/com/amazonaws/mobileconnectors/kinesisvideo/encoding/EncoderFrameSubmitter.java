@@ -98,6 +98,8 @@ public class EncoderFrameSubmitter {
     private final MediaCodec mEncoder;
     private long mFirstFrameTimestamp = -1;
 
+    private int uvPixelStride;
+
     public EncoderFrameSubmitter(final MediaCodec encoder) {
         mEncoder = encoder;
     }
@@ -145,14 +147,15 @@ public class EncoderFrameSubmitter {
 
         System.out.println("cameraFrame.getPlanes().length is " + cameraFrame.getPlanes().length);
 
-        ByteBuffer[] planes = convertByteArrayToPlanes(rotateYUV420Degree90(convertYUV420ToByteArray(cameraFrame), 320, 240, 90), 240, 320);
-
+        // ByteBuffer[] planes = convertByteArrayToPlanes(rotateYUV420Degree90(convertYUV420ToByteArray(cameraFrame), 320, 240, 90), 240, 320);
+        ByteBuffer[] planes = convertByteArrayToPlanes(convertYUV420ToByteArray(cameraFrame), 320, 240);
         for (int i = 0; i < planes.length; i++) {
             final ByteBuffer sourceImagePlane = planes[i];
+        // for (int i = 0; i < cameraFrame.getPlanes().length; i++) {
+        //     final ByteBuffer sourceImagePlane = cameraFrame.getPlanes()[i].getBuffer();
             final ByteBuffer destinationImagePlane = codecInputImage.getPlanes()[i].getBuffer();
             copyBuffer(sourceImagePlane, destinationImagePlane);
         }
-
     }
 
     private int copyBuffer(final ByteBuffer sourceBuffer,
@@ -177,25 +180,45 @@ public class EncoderFrameSubmitter {
 
     private ByteBuffer[] convertByteArrayToPlanes(byte[] data, int width, int height) {
         ByteBuffer[] buffers = new ByteBuffer[3];
-        
+
         // Calculate the size of YUV components
         int ySize = width * height;
         int uvSize = ySize / 4; // U and V planes have half the width and height of Y plane
-    
+
         // Allocate buffers for Y, U, and V planes
         ByteBuffer yBuffer = ByteBuffer.allocateDirect(ySize);
-        ByteBuffer uBuffer = ByteBuffer.allocateDirect(uvSize);
-        ByteBuffer vBuffer = ByteBuffer.allocateDirect(uvSize);
-    
-        // Copy Y, U, and V components from byte array to their respective buffers
+        ByteBuffer uBuffer;
+        ByteBuffer vBuffer;
+
+        // Copy Y components from byte array to Y buffer
         yBuffer.put(data, 0, ySize).rewind(); // Y plane is the first ySize bytes
-        uBuffer.put(data, ySize, uvSize).rewind(); // U plane follows Y plane
-        vBuffer.put(data, ySize + uvSize, uvSize).rewind(); // V plane follows U plane
-    
+
+        if (this.uvPixelStride == 1) {
+            uBuffer = ByteBuffer.allocateDirect(uvSize);
+            vBuffer = ByteBuffer.allocateDirect(uvSize);
+
+            // Planar format: Copy U and V components from byte array to their respective buffers
+            uBuffer.put(data, ySize, uvSize).rewind(); // U plane follows Y plane
+            vBuffer.put(data, ySize + uvSize, uvSize).rewind(); // V plane follows U plane
+        } else {
+            uBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
+            vBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
+            
+            // Semi-planar format: Interleave U and V components
+            for (int i = 0; i < uvSize - 1; i++) {
+                uBuffer.put(data[ySize + 2 * i]);
+                uBuffer.put(data[ySize + 2 * i + 1]);
+                vBuffer.put(data[ySize + 2 * i + 1]);
+                vBuffer.put(data[ySize + 2 * i + 2]);
+            }
+            uBuffer.rewind();
+            vBuffer.rewind();
+        }
+
         buffers[0] = yBuffer;
         buffers[1] = uBuffer;
         buffers[2] = vBuffer;
-    
+
         return buffers;
     }
 
@@ -288,9 +311,29 @@ public class EncoderFrameSubmitter {
         // Copy U and V plane data to the byte array
         ByteBuffer uBuffer = planes[1].getBuffer();
         ByteBuffer vBuffer = planes[2].getBuffer();
-        uBuffer.get(yuvData, ySize, uvSize);
-        vBuffer.get(yuvData, ySize + uvSize, uvSize);
-    
+        int uvRowStride = planes[1].getRowStride();
+        this.uvPixelStride = planes[1].getPixelStride();
+
+        int uvHeight = height / 2;
+        int uvWidth = width / 2;
+
+        System.out.println("[TESTING][PLANES] Pixel stride is: " + this.uvPixelStride);
+
+        if (this.uvPixelStride == 1) {
+            // Planar format
+            uBuffer.get(yuvData, ySize, uvSize);
+            vBuffer.get(yuvData, ySize + uvSize, uvSize);
+        } else {
+            // Semi-planar format
+            for (int row = 0; row < uvHeight; row++) {
+                int rowOffset = row * uvRowStride;
+                for (int col = 0; col < uvWidth; col++) {
+                    yuvData[ySize + row * uvWidth + col] = uBuffer.get(rowOffset + col * this.uvPixelStride);
+                    yuvData[ySize + uvSize + row * uvWidth + col] = vBuffer.get(rowOffset + col * this.uvPixelStride);
+                }
+            }
+        }
+
         return yuvData;
     }
 

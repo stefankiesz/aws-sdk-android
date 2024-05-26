@@ -58,7 +58,7 @@ public class EncoderFactory {
 
                 encoder.configure(
                         configureMediaFormat(mediaSourceConfiguration,
-                                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar),
+                                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible),
                         NULL_SURFACE,
                         NULL_CRYPTO,
                         MediaCodec.CONFIGURE_FLAG_ENCODE);
