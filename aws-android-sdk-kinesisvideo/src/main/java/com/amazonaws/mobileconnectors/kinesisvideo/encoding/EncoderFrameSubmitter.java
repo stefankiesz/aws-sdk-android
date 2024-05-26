@@ -147,8 +147,8 @@ public class EncoderFrameSubmitter {
 
         System.out.println("cameraFrame.getPlanes().length is " + cameraFrame.getPlanes().length);
 
-        // ByteBuffer[] planes = convertByteArrayToPlanes(rotateYUV420Degree90(convertYUV420ToByteArray(cameraFrame), 320, 240, 90), 240, 320);
-        ByteBuffer[] planes = convertByteArrayToPlanes(convertYUV420ToByteArray(cameraFrame), 320, 240);
+        ByteBuffer[] planes = convertByteArrayToPlanes(rotateYUV420Degree90(convertYUV420ToByteArray(cameraFrame), 320, 240, 90), 240, 320);
+        // ByteBuffer[] planes = convertByteArrayToPlanes(convertYUV420ToByteArray(cameraFrame), 320, 240);
         for (int i = 0; i < planes.length; i++) {
             final ByteBuffer sourceImagePlane = planes[i];
         // for (int i = 0; i < cameraFrame.getPlanes().length; i++) {
@@ -206,11 +206,17 @@ public class EncoderFrameSubmitter {
             
             // Semi-planar format: Interleave U and V components
             for (int i = 0; i < uvSize - 1; i++) {
-                uBuffer.put(data[ySize + 2 * i]);
-                uBuffer.put(data[ySize + 2 * i + 1]);
-                vBuffer.put(data[ySize + 2 * i + 1]);
-                vBuffer.put(data[ySize + 2 * i + 2]);
+                uBuffer.put(data[ySize + i]);
+                uBuffer.put(data[ySize + uvSize + i]);
+
+                vBuffer.put(data[ySize + uvSize + i]);
+                vBuffer.put(data[ySize + i + 1]);
             }
+            // And add in the final U and V (edge case so not in for loop).
+            uBuffer.put(data[ySize + uvSize - 1]);
+            vBuffer.put(data[ySize + uvSize + uvSize - 1]);
+
+
             uBuffer.rewind();
             vBuffer.rewind();
         }

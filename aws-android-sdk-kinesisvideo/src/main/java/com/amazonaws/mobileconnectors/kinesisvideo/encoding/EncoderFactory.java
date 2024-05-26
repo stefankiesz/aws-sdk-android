@@ -54,7 +54,7 @@ public class EncoderFactory {
                 //         MediaCodec.CONFIGURE_FLAG_ENCODE);
                 // logSupportedColorFormats(encoder, mediaSourceConfiguration);
             // } catch (MediaCodec.CodecException e) {
-                Log.d(TAG, "Failed configuring MediaCodec with Semi-planar pixel format, falling back to planar");
+                // Log.d(TAG, "Failed configuring MediaCodec with Semi-planar pixel format, falling back to planar");
 
                 encoder.configure(
                         configureMediaFormat(mediaSourceConfiguration,
