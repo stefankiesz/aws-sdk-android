@@ -147,8 +147,8 @@ public class EncoderFrameSubmitter {
 
         System.out.println("cameraFrame.getPlanes().length is " + cameraFrame.getPlanes().length);
 
-        // ByteBuffer[] planes = convertByteArrayToPlanes(rotateYUV420(convertYUV420ToByteArray(cameraFrame), 320, 240, 90), 240, 320);
-        ByteBuffer[] planes = convertByteArrayToPlanes(rotateYUV420Degree90_2(convertYUV420ToByteArray(cameraFrame), 320, 240), 240, 320);
+        // ByteBuffer[] planes = convertByteArrayToPlanes(rotateYUV420Degree90(convertYUV420ToByteArray(cameraFrame), 320, 240), 240, 320);
+        ByteBuffer[] planes = rotateYUV420Degree90_2(cameraFrame, 320, 240);
         // ByteBuffer[] planes = convertByteArrayToPlanes(convertYUV420ToByteArray(cameraFrame), 320, 240);
         
         for (int i = 0; i < planes.length; i++) {
@@ -180,33 +180,156 @@ public class EncoderFrameSubmitter {
         return (currentTime - mFirstFrameTimestamp) * NS_IN_MS;
     }
 
+
+
+
+    /* 
+     * The necessity for the complexity of the below rotateYUV420Degree90 function stems from the
+     * format which the Image Planes hold the YUV values when using a semi-planar scheme:
+     * 
+     * If the YUV data in planar form is as follow:
+     * Y1 Y2 Y3 Y4 Y5 Y6 Y7 Y8 Y9 Y10 Y11 Y12 Y13 Y14 Y15 Y16
+     * U1 U2 U3 U4
+     * V1 V2 V3 V4
+     * 
+     * The U ByteBuffer (in semi-planar, interleaved form) returned from Image.Plane[1] will be:
+     * U1 V1 U2 V2 U3 V3 U4 __
+     * 
+     * And the V ByteBuffer (in semi-planar, interleaved form) returned from Image.Plane[2] will be:
+     * __ V1 U2 V2 U3 V3 U4 V4
+     * 
+     * So, both U and V buffers will contain the same data except the U buffer will be missing
+     * the last V, and V buffer will be missing the first U.
+     * 
+     */
+    private ByteBuffer[] rotateYUV420Degree90(Image image, int imageWidth, int imageHeight) 
+    {
+        Image.Plane[] planes = image.getPlanes();
+
+        ByteBuffer yPlane = planes[0].getBuffer();
+        ByteBuffer uPlane = planes[1].getBuffer();
+        ByteBuffer vPlane = planes[2].getBuffer();
+
+        int uvRowStride = planes[1].getRowStride();
+        this.uvPixelStride = planes[1].getPixelStride();
+
+        int ySize = imageWidth * imageHeight;
+        int uvSize = ySize / 4; // This is the length of each of the U and V buffers if planar scheme.
+
+        // Allocate new buffers for the rotated data
+        ByteBuffer rotatedYBuffer = ByteBuffer.allocateDirect(ySize);
+        ByteBuffer rotatedUBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
+        ByteBuffer rotatedVBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
+
+
+        // Rotate the Y luma values.
+        for (int x = 0; x < imageWidth; x++) {
+            for (int y = imageHeight - 1; y >= 0; y--) {
+                rotatedYBuffer.put(yPlane.get(y * imageWidth + x));
+            }
+        }
+
+
+        // Rotate the U and V chroma values.
+
+        int uvWidth = imageWidth / 2;
+        int uvHeight = imageHeight / 2;
+        
+        int UVPlaneLength = uvWidth * uvHeight * 2 - 1;
+
+        // Put the new first U value only in the U buffer - the V buffer should not contain the new first U value.
+        rotatedUBuffer.put(uPlane.get(UVPlaneLength - (imageWidth - 1)));
+        rotatedUBuffer.put(uPlane.get(UVPlaneLength - (imageWidth - 1) - 1));
+        // ...
+        rotatedVBuffer.put(uPlane.get(UVPlaneLength - (imageWidth - 1) - 1));
+
+        // Fill the rest of each of the new Buffers' first row.
+        for (int y = uvHeight - 1 - 1; y >= 0; y--) {
+            rotatedUBuffer.put(uPlane.get(y * imageWidth));
+            rotatedUBuffer.put(uPlane.get(y * imageWidth + 1));
+            rotatedVBuffer.put(uPlane.get(y * imageWidth));
+            rotatedVBuffer.put(uPlane.get(y * imageWidth + 1));
+        }
+
+        // The middle, non-edge cases.
+        for (int x = 1; x < (uvWidth - 1); x++) {
+            for (int y = uvHeight - 1; y >= 0; y--) {
+                rotatedUBuffer.put(uPlane.get(y * imageWidth + x * this.uvPixelStride));
+                rotatedUBuffer.put(uPlane.get(y * imageWidth + x * this.uvPixelStride + 1));
+
+                rotatedVBuffer.put(uPlane.get(y * imageWidth + x * this.uvPixelStride));
+                rotatedVBuffer.put(uPlane.get(y * imageWidth + x * this.uvPixelStride + 1));
+            }
+        }
+
+        rotatedUBuffer.put(uPlane.get(UVPlaneLength - 1)); // The last element of the old U plane is its last U value...
+        // ...the U buffer is missing the old U buffer's last V, so get it from the old V buffer.
+        rotatedUBuffer.put(vPlane.get(UVPlaneLength - 1)); // The last element of the old V plane is its last V value.
+        
+        // Do the same for the new V buffer.
+        rotatedVBuffer.put(uPlane.get(UVPlaneLength - 1));
+        rotatedVBuffer.put(vPlane.get(UVPlaneLength - 1));
+
+        // Only go down to y == 1 because y == 0 is also a special case (the new U buffer needs to not get the new last V value).
+        for (int y = uvHeight - 1 - 1; y >= 1; y--) {
+            rotatedUBuffer.put(uPlane.get(y * imageWidth + (imageWidth - 2)));
+            rotatedUBuffer.put(uPlane.get(y * imageWidth + (imageWidth - 1)));
+
+            rotatedVBuffer.put(uPlane.get(y * imageWidth + (imageWidth - 2)));
+            rotatedVBuffer.put(uPlane.get(y * imageWidth + (imageWidth - 1)));
+        }
+
+        // Put the new last values into the buffers. The U only gets the new last U value and the V gets both U and V.
+        rotatedUBuffer.put(uPlane.get((imageWidth - 2)));
+        // ...
+        rotatedVBuffer.put(uPlane.get((imageWidth - 2)));
+        rotatedVBuffer.put(uPlane.get((imageWidth - 1)));
+
+
+        // Reset buffer positions to the beginning.
+        rotatedYBuffer.rewind();
+        rotatedUBuffer.rewind();
+        rotatedVBuffer.rewind();
+
+        ByteBuffer[] retArray = {rotatedYBuffer, rotatedUBuffer, rotatedVBuffer};
+
+        return retArray;
+    }
+
+
+
+    //
+    // NOTE: The below 3 functions are un-optimized versions of the rotateYUV420Degree90 function. These functions
+    // convert the YUV ByteBuffers into byte arrays, then rotate, then convert the outputted arrays back to ByteBuffers.
+    //
+
     private ByteBuffer[] convertByteArrayToPlanes(byte[] data, int width, int height) {
         ByteBuffer[] buffers = new ByteBuffer[3];
 
-        // Calculate the size of YUV components
         int ySize = width * height;
-        int uvSize = ySize / 4; // U and V planes have half the width and height of Y plane
+        int uvSize = ySize / 4; // U and V planes each have half the width and height of Y plane.
 
-        // Allocate buffers for Y, U, and V planes
+        // Allocate buffers for Y, U, and V planes.
         ByteBuffer yBuffer = ByteBuffer.allocateDirect(ySize);
         ByteBuffer uBuffer;
         ByteBuffer vBuffer;
 
-        // Copy Y components from byte array to Y buffer
-        yBuffer.put(data, 0, ySize).rewind(); // Y plane is the first ySize bytes
+        // Copy Y components from byte array to Y buffer.
+        yBuffer.put(data, 0, ySize).rewind();
 
+        // Copy U and V components from byte arrays to respective buffer.
         if (this.uvPixelStride == 1) {
             uBuffer = ByteBuffer.allocateDirect(uvSize);
             vBuffer = ByteBuffer.allocateDirect(uvSize);
 
-            // Planar format: Copy U and V components from byte array to their respective buffers
-            uBuffer.put(data, ySize, uvSize).rewind(); // U plane follows Y plane
-            vBuffer.put(data, ySize + uvSize, uvSize).rewind(); // V plane follows U plane
+            // Planar format: Copy U and V components from byte array to their respective buffers.
+            uBuffer.put(data, ySize, uvSize).rewind();
+            vBuffer.put(data, ySize + uvSize, uvSize).rewind();
         } else {
             uBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
             vBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
             
-            // Semi-planar format: Interleave U and V components
+            // Semi-planar format: Interleave U and V components.
             for (int i = 0; i < uvSize - 1; i++) {
                 uBuffer.put(data[ySize +          i]);
                 uBuffer.put(data[ySize + uvSize + i]);
@@ -214,7 +337,7 @@ public class EncoderFrameSubmitter {
                 vBuffer.put(data[ySize + uvSize + i]);
                 vBuffer.put(data[ySize +          i + 1]);
             }
-            // And add in the final U and V (this is an edge case so not in for loop).
+            // And add in the final U and V (this is an edge case so not in the for-loop).
             uBuffer.put(data[ySize + uvSize          - 1]);
             vBuffer.put(data[ySize + uvSize + uvSize - 1]);
 
@@ -230,81 +353,11 @@ public class EncoderFrameSubmitter {
         return buffers;
     }
 
-    public static byte[] rotateYUV420Degree90(byte[] data, int imageWidth, int imageHeight) {
-        byte[] yuv = new byte[data.length];
-    
-        int yOffset = 0;
-        int uOffset = imageWidth * imageHeight;
-        int vOffset = uOffset + (imageWidth * imageHeight / 4);
-    
-        // Rotate the Y luma
-        int i = 0;
-        for (int x = 0; x < imageWidth; x++) {
-            for (int y = imageHeight - 1; y >= 0; y--) {
-                yuv[i++] = data[y * imageWidth + x];
-            }
-        }
-    
-        // Rotate the U and V color components
-        int iUv = 0;
-        for (int x = imageWidth - 1; x > 0; x -= 2) {
-            for (int y = imageHeight / 2 - 1; y >= 0; y--) {
-                yuv[uOffset + iUv] = data[(imageWidth * imageHeight) + y * imageWidth + x];
-                yuv[vOffset + iUv] = data[(imageWidth * imageHeight) + y * imageWidth + (x - 1)];
-                iUv++;
-            }
-        }
-    
-        return yuv;
-    }
 
-    public static byte[] rotateYUV420(final byte[] yuv,
-                                final int width,
-                                final int height,
-                                final int rotation)
-    {
-        if (rotation == 0) return yuv;
-        if (rotation % 90 != 0 || rotation < 0 || rotation > 270) {
-            throw new IllegalArgumentException("0 <= rotation < 360, rotation % 90 == 0");
-        }
-
-        final byte[]  output    = new byte[yuv.length];
-        final int     frameSize = width * height;
-        final boolean swap      = rotation % 180 != 0;
-        final boolean xflip     = rotation % 270 != 0;
-        final boolean yflip     = rotation >= 180;
-
-        for (int j = 0; j < height; j++) {
-            for (int i = 0; i < width; i++) {
-                final int yIn = j * width + i;
-                final int uIn = frameSize + (j >> 1) * width + (i & ~1);
-                final int vIn = uIn       + 1;
-
-                final int wOut     = swap  ? height              : width;
-                final int hOut     = swap  ? width               : height;
-                final int iSwapped = swap  ? j                   : i;
-                final int jSwapped = swap  ? i                   : j;
-                final int iOut     = xflip ? wOut - iSwapped - 1 : iSwapped;
-                final int jOut     = yflip ? hOut - jSwapped - 1 : jSwapped;
-
-                final int yOut = jOut * wOut + iOut;
-                final int uOut = frameSize + (jOut >> 1) * wOut + (iOut & ~1);
-                final int vOut = uOut + 1;
-
-                output[yOut] = (byte)(0xff & yuv[yIn]);
-                output[uOut] = (byte)(0xff & yuv[uIn]);
-                output[vOut] = (byte)(0xff & yuv[vIn]);
-            }
-        }
-        
-        return output;
-    }
-
-
-    private byte[] rotateYUV420Degree90_2(byte[] data, int imageWidth, int imageHeight) 
+    private byte[] rotateYUV420Degree90_byteArray(byte[] data, int imageWidth, int imageHeight) 
     {
         byte [] yuv = new byte[imageWidth*imageHeight*3/2];
-        // Rotate the Y luma
+        // Rotate the Y luma.
         int i = 0;
         for(int x = 0; x < imageWidth; x++)
         {
@@ -315,6 +368,7 @@ public class EncoderFrameSubmitter {
             }
         }
 
+        // Rotate the U chroma.
         for(int x = 0; x < imageWidth/2; x++)
         {
             for(int y = (imageHeight/2)-1; y >= 0;y--)                               
@@ -324,6 +378,7 @@ public class EncoderFrameSubmitter {
             }
         }
 
+        // Rotate the V chroma.
         for(int x = 0; x < imageWidth/2; x++)
         {
             for(int y = (imageHeight/2)-1; y >= 0;y--)                               
@@ -333,46 +388,31 @@ public class EncoderFrameSubmitter {
             }
         }
 
-
-        // Rotate the U and V color components 
-        // i = imageWidth*imageHeight*3/2-1;
-        // for(int x = imageWidth-1; x > 0; x=x-2)
-        // {
-        //     for(int y = 0; y < imageHeight/2; y++)                                
-        //     {
-        //         yuv[i] = data[(imageWidth*imageHeight)+(y*imageWidth)+x];
-        //         i--;
-        //         yuv[i] = data[(imageWidth*imageHeight)+(y*imageWidth)+(x-1)];
-        //         i--;
-        //     }
-        // }
         return yuv;
     }
+
 
 
     /*
      * If the input image is in semi-planar format, the function will convert
      * the output to be in planar format:
-     * YYYYYYYY UVUV (Represented by the image planes as UVU and VUV for semiplanar)  ->  YYYYYYYY UU VV
+     * YYYYYYYY UVUV (Represented by the semiplanar image planes as UVU and VUV)  ->  YYYYYYYY UU VV
      */
     private byte[] convertYUV420ToByteArray(Image image) {
-        // Extract the planes from the image
         Image.Plane[] planes = image.getPlanes();
     
-        // Calculate the size of YUV components
         int width = image.getWidth();
         int height = image.getHeight();
         int ySize = width * height;
-        int uvSize = ySize / 4; // U and V planes have half the width and height of Y plane
+        int uvSize = ySize / 4; // U and V planes each have half the width and height of Y plane.
     
-        // Allocate a byte array to hold the YUV data
-        byte[] yuvData = new byte[ySize + 2 * uvSize];
+        byte[] yuvData = new byte[ySize + (2 * uvSize)];
     
-        // Copy Y plane data to the byte array
+        // Copy Y plane data to the byte array.
         ByteBuffer yBuffer = planes[0].getBuffer();
         yBuffer.get(yuvData, 0, ySize);
     
-        // Copy U and V plane data to the byte array
+        // Copy U and V plane data to the byte array.
         ByteBuffer uBuffer = planes[1].getBuffer();
         ByteBuffer vBuffer = planes[2].getBuffer();
         int uvRowStride = planes[1].getRowStride();
@@ -381,14 +421,12 @@ public class EncoderFrameSubmitter {
         int uvHeight = height / 2;
         int uvWidth = width / 2;
 
-        System.out.println("[TESTING][PLANES] Pixel stride is: " + this.uvPixelStride);
-
         if (this.uvPixelStride == 1) {
-            // Planar format
+            // Planar format.
             uBuffer.get(yuvData, ySize, uvSize);
             vBuffer.get(yuvData, ySize + uvSize, uvSize);
         } else {
-            // Semi-planar format
+            // Semi-planar format.
             for (int row = 0; row < uvHeight; row++) {
                 int rowOffset = row * uvRowStride;
                 for (int col = 0; col < uvWidth; col++) {
@@ -400,75 +438,5 @@ public class EncoderFrameSubmitter {
 
         return yuvData;
     }
-
-    
-    public static byte[] imageToMat(Image image) {
-
-        Image.Plane[] planes = image.getPlanes();
-    
-        ByteBuffer buffer0 = planes[0].getBuffer();
-        ByteBuffer buffer1 = planes[1].getBuffer();
-        ByteBuffer buffer2 = planes[2].getBuffer();
-    
-        int offset = 0;
-    
-        int width = image.getWidth();
-        int height = image.getHeight();
-    
-        byte[] data = new byte[image.getWidth() * image.getHeight() * ImageFormat.getBitsPerPixel(ImageFormat.YUV_420_888) / 8];
-        byte[] rowData1 = new byte[planes[1].getRowStride()];
-        byte[] rowData2 = new byte[planes[2].getRowStride()];
-    
-        int bytesPerPixel = ImageFormat.getBitsPerPixel(ImageFormat.YUV_420_888) / 8;
-    
-        // loop via rows of u/v channels
-    
-        int offsetY = 0;
-    
-        int sizeY =  width * height * bytesPerPixel;
-        int sizeUV = (width * height * bytesPerPixel) / 4;
-    
-        for (int row = 0; row < height ; row++) {
-    
-            // fill data for Y channel, two row
-            {
-                int length = bytesPerPixel * width;
-                buffer0.get(data, offsetY, length);
-    
-                if ( height - row != 1)
-                    buffer0.position(buffer0.position()  +  planes[0].getRowStride() - length);
-    
-                offsetY += length;
-            }
-    
-            if (row >= height/2)
-                continue;
-    
-            {
-                int uvlength = planes[1].getRowStride();
-    
-                if ( (height / 2 - row) == 1 ) {
-                    uvlength = width / 2 - planes[1].getPixelStride() + 1;
-                }
-    
-                buffer1.get(rowData1, 0, uvlength);
-                buffer2.get(rowData2, 0, uvlength);
-    
-                // fill data for u/v channels
-                for (int col = 0; col < width / 2; ++col) {
-                    // u channel
-                    data[sizeY + (row * width)/2 + col] = rowData1[col * planes[1].getPixelStride()];
-    
-                    // v channel
-                    data[sizeY + sizeUV + (row * width)/2 + col] = rowData2[col * planes[2].getPixelStride()];
-                }
-            }
-    
-        }
-    
-        return data;
-    }
-
-
 
 }
