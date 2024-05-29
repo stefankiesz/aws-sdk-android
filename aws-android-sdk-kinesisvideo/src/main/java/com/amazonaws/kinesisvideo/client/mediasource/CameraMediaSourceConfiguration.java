@@ -333,12 +333,4 @@ public class CameraMediaSourceConfiguration implements MediaSourceConfiguration 
     public boolean getIsAbsoluteTimecode() {
         return mBuilder.mIsAbsoluteTimecode;
     }
-
-    // /**
-    //  * Get the track id of the video track
-    //  * @return
-    //  */
-    // public int getTrackId() {
-    //     return mBuilder.mTrackId;
-    // }
 }

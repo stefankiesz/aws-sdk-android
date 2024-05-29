@@ -80,16 +80,16 @@ public class EncoderFactory {
                 + mediaSourceConfiguration.getVerticalResolution() + " @"
                 + mediaSourceConfiguration.getBitRate());
 
-        // final MediaFormat format = MediaFormat.createVideoFormat(
-        //         mediaSourceConfiguration.getEncoderMimeType(),
-        //         mediaSourceConfiguration.getHorizontalResolution(),
-        //         mediaSourceConfiguration.getVerticalResolution());
-
-        // Switching height and width for rotation case:
         final MediaFormat format = MediaFormat.createVideoFormat(
                 mediaSourceConfiguration.getEncoderMimeType(),
-                mediaSourceConfiguration.getVerticalResolution(),
-                mediaSourceConfiguration.getHorizontalResolution());
+                mediaSourceConfiguration.getHorizontalResolution(),
+                mediaSourceConfiguration.getVerticalResolution());
+
+        // Switching height and width for rotation case:
+        // final MediaFormat format = MediaFormat.createVideoFormat(
+        //         mediaSourceConfiguration.getEncoderMimeType(),
+        //         mediaSourceConfiguration.getVerticalResolution(),
+        //         mediaSourceConfiguration.getHorizontalResolution());
 
         // Set some properties.  Failing to specify some of these can cause the MediaCodec
         // configure() call to throw an unhelpful exception.

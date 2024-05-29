@@ -117,9 +117,6 @@ public class MicrophoneSource {
                             e.printStackTrace();
                         }
                     }
-
-
-                    // submitAudioSampleToKVS();
                 }
             }, "AudioCapture Thread");
             audioCaptureThread.start();
@@ -170,8 +167,6 @@ public class MicrophoneSource {
         byte[] audioRecordData = new byte[bufferSize];
         int length = audioRecord.read(audioRecordData, 0, audioRecordData.length);
 
-        // System.out.println("[TESTING] handleCodecInput checking for invalid data length.");
-
         if (length == AudioRecord.ERROR_BAD_VALUE ||
                 length == AudioRecord.ERROR_INVALID_OPERATION ||
                 length != bufferSize) {
@@ -181,12 +176,9 @@ public class MicrophoneSource {
             return false; // testing with this here too
         }
 
-        // System.out.println("[TESTING] handleCodecInput calling dequeueInputBuffer.");
-
         int codecInputBufferIndex = audioEncoder.dequeueInputBuffer(-1); // (-1 == no timeout)
 
         if (codecInputBufferIndex >= 0) {
-            // System.out.println("[TESTING] handleCodecInput codecInputBufferIndex is >= 0.");
             ByteBuffer codecBuffer = codecInputBuffers[codecInputBufferIndex];
             codecBuffer.clear();
             codecBuffer.put(audioRecordData);
@@ -207,14 +199,8 @@ public class MicrophoneSource {
             //audioEncoder.releaseOutputBuffer(codecOutputBufferIndex, false);
             return;
         }
-
-        // System.out.println("[TESTING] handleCodecOutput starting while loop.");
-
-
         while (codecOutputBufferIndex != MediaCodec.INFO_TRY_AGAIN_LATER) {
             if (codecOutputBufferIndex >= 0) {
-                // System.out.println("[TESTING] handleCodecOutput codecOutputBufferIndex is >= 0.");
-
                 ByteBuffer encoderOutputBuffer = codecOutputBuffers[codecOutputBufferIndex];
 
                 if (encoderOutputBuffer == null) {
@@ -232,11 +218,8 @@ public class MicrophoneSource {
                         return;
                     }
 
-                    // if()
                     try {
-                        System.out.println("[TESTING] startAudioCapture is waiting for the firstVideoFrameSent latch.");
                         mLatch.await();
-                        System.out.println("[TESTING] startAudioCapture is DONE waiting for the firstVideoFrameSent latch.");
                     } catch (InterruptedException e) {
                         System.out.println("MicrophoneSource interrupted waiting on first video frame to be sent.");
                     }
@@ -264,7 +247,6 @@ public class MicrophoneSource {
         codecPrivateData.get(codecPrivateDataArray);
 
         try {
-            System.out.println("[TESTING] Calling onCodecPrivateData");
             mMediaSourceSink.onCodecPrivateData(codecPrivateDataArray, AUDIO_TRACK_ID);
         } catch (KinesisVideoException e) {
             Log.e(TAG, "error updating sink with codec private data", e);
