@@ -21,8 +21,11 @@ import android.media.Image;
 import android.media.MediaCodec;
 
 import java.nio.ByteBuffer;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 
 import android.graphics.Rect;
 import android.graphics.ImageFormat;
@@ -98,6 +101,10 @@ public class EncoderFrameSubmitter {
     private final MediaCodec mEncoder;
     private long mFirstFrameTimestamp = -1;
     private boolean mRotate90 = false;
+
+    private final ByteBuffer rotatedYBuffer = ByteBuffer.allocateDirect(320 * 240);
+    private final ByteBuffer rotatedUBuffer = ByteBuffer.allocateDirect(320 * 240 / 2 - 1);
+    private final ByteBuffer rotatedVBuffer = ByteBuffer.allocateDirect(320 * 240 / 2 - 1);
 
 
     public EncoderFrameSubmitter(final MediaCodec encoder) {
@@ -212,6 +219,8 @@ public class EncoderFrameSubmitter {
      */
     private ByteBuffer[] rotateYUV420Degree90(Image image)
     {
+        final Instant start = Instant.now();
+
         final Image.Plane[] planes = image.getPlanes();
 
         final int imageWidth = image.getWidth();
@@ -227,10 +236,17 @@ public class EncoderFrameSubmitter {
         final int ySize = imageWidth * imageHeight;
         final int uvSize = ySize / 4; // This is the length of each of the U and V buffers if planar scheme.
 
-        final ByteBuffer rotatedYBuffer = ByteBuffer.allocateDirect(ySize);
-        final ByteBuffer rotatedUBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
-        final ByteBuffer rotatedVBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
+        // TODO: Make these byteBuffers class members so they are pre-allocated and re-use them.
+        //          This should help with memory fragmentation performance issues.
+        // final ByteBuffer rotatedYBuffer = ByteBuffer.allocateDirect(ySize);
+        // final ByteBuffer rotatedUBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
+        // final ByteBuffer rotatedVBuffer = ByteBuffer.allocateDirect(uvSize * 2 - 1);
 
+        // Reset buffer positions to the beginning.
+        rotatedYBuffer.rewind();
+        rotatedUBuffer.rewind();
+        rotatedVBuffer.rewind();
+        
 
         // Rotate the Y luma values.
         for (int x = 0; x < imageWidth; x++) {
@@ -302,6 +318,10 @@ public class EncoderFrameSubmitter {
         rotatedVBuffer.rewind();
 
         final ByteBuffer[] retArray = {rotatedYBuffer, rotatedUBuffer, rotatedVBuffer};
+
+        final Instant end = Instant.now();
+        
+        System.out.println("Rotation duration: " + Duration.between(start, end).toMillis());
 
         return retArray;
     }
